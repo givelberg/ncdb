@@ -7,30 +7,46 @@ logging.basicConfig(
 
 import os
 from datetime import datetime
+from pathlib import Path
 
-from ncdb.api import Database
+from ncdb.api import Database, FieldCollection
 
 
-DB_DIR = "/scratch3/NCEPDEV/da/Edward.Givelberg/monitoring/"
+BASE_DIR = Path(__file__).parent
+DB_DIR = BASE_DIR
+
+
+from ncdb.scanners.marine_da_scanner import MarineDAScanner
+SCANNER = MarineDAScanner
+DATA_ROOT = "/scratch4/NCEPDEV/global/John.Steffen/hpss_arch/cp4.03-parallel-3dvar"
 DB_PATH = f"{DB_DIR}/cp4.03-parqllel-3dvar.db"
 
-DATA_ROOT = "/scratch4/NCEPDEV/global/John.Steffen/hpss_arch/cp4.03-parallel-3dvar"
+
+'''
+from ncdb.scanners.obsforge_scanner import ObsForgeScanner
+SCANNER = ObsForgeScanner
+DATA_ROOT="/lfs/h2/emc/da/noscrub/emc.da/obsForge/COMROOT/realtime"
+DB_PATH = f"{DB_DIR}/emcda.db"
+'''
 
 
 def main():
     db = Database(DB_PATH)
 
-    db.scan(DATA_ROOT, -2)
-
     print("\n=== Datasets ===")
-    print(db.list_datasets())
+    print(db.datasets())
+
+    db.scan(
+        data_root=DATA_ROOT,
+        n_cycles=-2,
+        scanner_cls=SCANNER
+    )
 
     gdas = db.dataset("gdas")
 
     print("\n=== Dataset loaded ===\n")
 
     obsspace_names = gdas.list_obsspaces()
-    # print(f"{obsspace_names}\n")
     print(f"{len(obsspace_names)} obs spaces:")
     for name in sorted(obsspace_names):
         print(f"- {name}")
@@ -39,8 +55,7 @@ def main():
     print(f"Obs space: {sst.name}\n")
 
     variable_names = sst.list_variables()
-    # print(f"{variable_names}\n")
-    print(f"{len(variable_names)} for {sst.name}:\n")
+    print(f"{len(variable_names)} variables for {sst.name}:\n")
     for name in sorted(variable_names):
         print(f"- {name}")
 
@@ -49,8 +64,13 @@ def main():
     temp = sst.field("/ObsValue/seaSurfaceTemperature")
     # ice = sst.field("ombg/seaIceFraction")
 
-    t = datetime(2026, 4, 7, 6)
+    cycles = db.cycles()
+    print(f"Available cycles: {cycles}")
 
+    # t = datetime(2026, 4, 7, 6)
+    # t = datetime(2026, 5, 1, 6)
+    # t = datetime(2026, 5, 4, 12)
+    t = cycles[-1]
     print(f"Requesting data at time: {t}\n")
 
     # lon0  = lon[t]
@@ -70,17 +90,26 @@ def main():
     print(f"Plot generated at {plot_path}")
 
     temp_max = temp.max
-    tmax = temp_max[t]
     temp_min = temp.min
-    tmin = temp_min[t]
 
+    tmax = temp_max[t]
+    tmin = temp_min[t]
     print(f"max temp at {t} = {tmax}")
     print(f"200 + min temp at {t} = {tmin + 200.0}")
 
     plot_path = temp_max.plot("jtemp_max.png")
     print(f"History plot generated at {plot_path}")
 
+    nobs = temp.nobs
+    plot_path = nobs.plot("jnobs.png")
+
+    c = FieldCollection()
+    c.add(temp.min)
+    c.add(temp.max)
+    c.plot("jmulti.png")
+
 '''
+    TODO:
     fields 
         lazy-evaluation;
         hold no data; encode computation graph
