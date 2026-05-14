@@ -12,6 +12,7 @@ dependencies = [
     "matplotlib",
     "sqlalchemy",
 	"netCDF4",
+	"cartopy",
 ]
 
 [tool.setuptools.packages.find]

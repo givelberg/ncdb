@@ -5,6 +5,22 @@ from datetime import datetime
 import pandas as pd
 from typing import Optional, List, Union
 
+
+from ncdb.plotting.color_scales import ColorScaleManager
+from ncdb.plotting.subsample_surface import subsample_surface_points
+import matplotlib
+matplotlib.use('Agg')  # Force Headless mode (no GUI window)
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import numpy as np
+import cartopy
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+HAS_MATPLOTLIB = True
+MISSING_LIB_MSG = ""
+
+
+'''
 # --- FAIL-SOFT IMPORTS ---
 # Allows the pipeline to run even if Matplotlib is missing.
 try:
@@ -18,14 +34,15 @@ try:
     import cartopy.feature as cfeature
 
     # from .var_plot_scales import VariablePlotScales
-    from .subsample_surface import subsample_surface_points
-    from .color_scales import ColorScaleManager
+    # from .subsample_surface import subsample_surface_points
+    # from .color_scales import ColorScaleManager
 
     HAS_MATPLOTLIB = True
     MISSING_LIB_MSG = ""
 except ImportError as e:
     HAS_MATPLOTLIB = False
     MISSING_LIB_MSG = str(e)
+'''
 
 logger = logging.getLogger("PlotGenerator")
 
