@@ -17,3 +17,9 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["ncdb*"]
+
+[tool.setuptools.package-data]
+ncdb = ["plotting/cartopy_data/**/*"]
+
+[tool.setuptools]
+include-package-data = true
