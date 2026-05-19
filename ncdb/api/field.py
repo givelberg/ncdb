@@ -102,6 +102,24 @@ class Field:
 
         raise AttributeError(f"{name} not found")
 
+    def cycles(self):
+        if self._repo is None:
+            raise RuntimeError(
+                "Field.cycles() requires repository access"
+            )
+
+        from ncdb.ds.services.field_data_service import (
+            FieldDataService
+        )
+
+        service = FieldDataService(
+            self._repo.session
+        )
+
+        return service.get_cycles(
+            self._field
+        )
+
     def list_attributes(self):
         attrs = self._field.list_derived_attributes(self._variable_path)
         return sorted(attrs)

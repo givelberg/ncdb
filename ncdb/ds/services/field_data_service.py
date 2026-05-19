@@ -22,6 +22,40 @@ class FieldDataService:
     def __init__(self, session):
         self.session = session
 
+    def get_cycles(self, field: Field):
+        stmt = (
+            select(
+                CycleORM.cycle_date,
+                CycleORM.cycle_hour
+            )
+            .join(
+                DatasetFileORM,
+                DatasetFileORM.dataset_cycle_id
+                == CycleORM.id
+            )
+            .where(
+                DatasetFileORM.dataset_field_id
+                == field.id
+            )
+            .distinct()
+            .order_by(
+                CycleORM.cycle_date,
+                CycleORM.cycle_hour
+            )
+        )
+
+        results = self.session.execute(stmt).all()
+
+        cycles = []
+        for date, hour in results:
+            ts = pd.to_datetime(
+                f"{date} {hour}",
+                format="%Y-%m-%d %H"
+            )
+            cycles.append(ts.to_pydatetime())
+
+        return cycles
+
     def get_variable_derived_data(self, field: Field, variable_path: str, metrics: list | None = None):
         """
         Fetch historical derived attributes for this variable 

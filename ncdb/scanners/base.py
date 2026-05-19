@@ -59,7 +59,7 @@ class BaseScanner(ABC):
 
         return cycles[:n_cycles]
 
-    def scan_dataset_cycles(self, n_cycles: Optional[int]):
+    def old_scan_dataset_cycles(self, n_cycles: Optional[int]):
         for dataset in self.datasets:
             cycles = self.discover_cycles(dataset)
             selected = self.select_cycles(cycles, n_cycles)
@@ -69,3 +69,46 @@ class BaseScanner(ABC):
                     dataset, cycle_date, cycle_hour
                 )
                 yield ScanCycle(dataset, cycle_date, cycle_hour, scan_results)
+
+
+
+    def scan_dataset_cycles(self, n_cycles: Optional[int]):
+        for dataset in self.datasets:
+            try:
+                cycles = self.discover_cycles(dataset)
+
+            except Exception:
+                logger.exception(
+                    f"Failed discovering cycles "
+                    f"for dataset {dataset.name}"
+                )
+                continue
+
+            selected = self.select_cycles(
+                cycles,
+                n_cycles
+            )
+
+            for cycle_date, cycle_hour in selected:
+                try:
+                    scan_results = self.scan_cycle(
+                        dataset,
+                        cycle_date,
+                        cycle_hour
+                    )
+
+                    yield ScanCycle(
+                        dataset,
+                        cycle_date,
+                        cycle_hour,
+                        scan_results
+                    )
+
+                except Exception:
+                    logger.exception(
+                        f"Failed scanning "
+                        f"{dataset.name} "
+                        f"{cycle_date} "
+                        f"{cycle_hour}"
+                    )
+                    continue

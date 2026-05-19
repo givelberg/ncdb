@@ -21,7 +21,16 @@ class MarineDAScanner(BaseScanner):
 
         dataset_names = set()
 
-        for entry in os.listdir(self.root_dir):
+        try:
+            entries = os.listdir(self.root_dir)
+        except Exception:
+            logger.exception(
+                f"Failed listing {self.root_dir}"
+            )
+            return []
+
+        # for entry in os.listdir(self.root_dir):
+        for entry in entries:
             full_path = os.path.join(self.root_dir, entry)
 
             if not os.path.isdir(full_path):
@@ -41,6 +50,7 @@ class MarineDAScanner(BaseScanner):
         return datasets
 
     
+    '''
     def old_discover_datasets(self) -> None:
         if not os.path.exists(self.root_dir):
             logger.error(
@@ -66,10 +76,20 @@ class MarineDAScanner(BaseScanner):
         ]
 
         logger.info(f"Discovered {len(self.datasets)} datasets {[d.name for d in self.datasets]}")
+    '''
 
     def discover_cycles(self, dataset: Dataset):
 
-        if not self.root_dir or not os.path.isdir(self.root_dir):
+        try:
+            valid_dir = os.path.isdir(self.root_dir)
+        except Exception:
+            logger.exception(
+                f"Failed checking directory {self.root_dir}"
+            )
+            return []
+
+        # if not self.root_dir or not os.path.isdir(self.root_dir):
+        if not self.root_dir or not valid_dir:
             logger.warning(f"Invalid root_dir for dataset '{dataset.name}'")
             return []
 
@@ -77,7 +97,16 @@ class MarineDAScanner(BaseScanner):
 
         discovered = []
 
-        for entry in os.listdir(self.root_dir):
+        try:
+            entries = os.listdir(self.root_dir)
+        except Exception:
+            logger.exception(
+                f"Failed listing {self.root_dir}"
+            )
+            return []
+
+        # for entry in os.listdir(self.root_dir):
+        for entry in entries:
             entry_path = os.path.join(self.root_dir, entry)
 
             if not os.path.isdir(entry_path):
@@ -98,9 +127,16 @@ class MarineDAScanner(BaseScanner):
             for hour_entry in os.listdir(entry_path):
                 hour_path = os.path.join(entry_path, hour_entry)
 
+                try:
+                    valid_dir = os.path.isdir(hour_path)
+                except Exception:
+                    logger.exception(
+                        f"Failed listing {hour_path}"
+                    )
+                    return []
+
                 if (
-                    os.path.isdir(hour_path)
-                    # and hour_entry in Cycle.VALID_HOURS
+                    valid_dir
                     and self.is_valid_cycle_hour(hour_entry)
                 ):
                     discovered.append((cycle_date, hour_entry))
@@ -132,6 +168,14 @@ class MarineDAScanner(BaseScanner):
         # logger.info(f"Selected files: {len(selected)}")
         # logger.info(f"Scan results: {len(results)}")
 
+        logger.info(
+            f"Dataset={dataset.name} "
+            f"Cycle={cycle_date} {cycle_hour} "
+            f"Files={len(files)} "
+            f"Selected={len(selected)} "
+            f"Results={len(results)}"
+        )
+
         return results
 
     def select_files(self, files, dataset_name, cycle_hour):
@@ -158,7 +202,7 @@ class MarineDAScanner(BaseScanner):
     def is_valid_cycle_hour(self, hour: str) -> bool:
         return hour in {"00", "06", "12", "18"}
 
-    def _scan_files(self, root_path):
+    def old_scan_files(self, root_path):
         if not os.path.isdir(root_path):
             return []
 
@@ -168,4 +212,44 @@ class MarineDAScanner(BaseScanner):
                 for filename in filenames:
                     full_path = os.path.join(dirpath, filename)
                     all_files.append(File.from_path(full_path))
+        return all_files
+
+    def _scan_files(self, root_path):
+
+        if not os.path.isdir(root_path):
+            logger.warning(
+                f"Missing cycle directory: {root_path}"
+            )
+            return []
+
+        all_files = []
+
+        try:
+            for dirpath, dirnames, filenames in os.walk(root_path):
+                if not dirnames:
+                    for filename in filenames:
+
+                        full_path = os.path.join(
+                            dirpath,
+                            filename
+                        )
+
+                        try:
+                            file_obj = File.from_path(
+                                full_path
+                            )
+                            all_files.append(file_obj)
+
+                        except Exception:
+                            logger.exception(
+                                f"Failed reading file "
+                                f"{full_path}"
+                            )
+
+        except Exception:
+            logger.exception(
+                f"Failed walking directory "
+                f"{root_path}"
+            )
+
         return all_files

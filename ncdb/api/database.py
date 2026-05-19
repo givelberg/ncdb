@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 class Database:
     def __init__(self, db_path):
-        self.db_path = db_path
+        self._db_path = db_path
 
         # clean fail if db dir is incorrect
-        db_dir = os.path.dirname(os.path.abspath(db_path)) or "."
+        db_dir = os.path.dirname(os.path.abspath(self._db_path)) or "."
         if not os.path.exists(db_dir):
             raise ValueError(f"Database directory does not exist: {db_dir}")
         if not os.path.isdir(db_dir):
@@ -28,14 +28,149 @@ class Database:
         if not os.access(db_dir, os.W_OK):
             raise PermissionError(f"Database directory is not writable: {db_dir}")
 
-        self._engine = create_engine(f"sqlite:///{db_path}")
+        self._engine = create_engine(f"sqlite:///{self._db_path}")
         self._session = Session(self._engine)
 
         Base.metadata.create_all(self._engine)
 
         self._repo = DatasetRepository(self._session)
 
-    def scan(self, data_root: str, n_cycles: Optional[int], scanner_cls=DefaultScanner, callback=None):
+    @property
+    def path(self):
+        return self._db_path
+
+    def scan(
+        self,
+        data_root: str,
+        n_cycles: Optional[int],
+        scanner_cls=DefaultScanner,
+        callback=None
+    ):
+
+        started_at = datetime.utcnow()
+
+        report = {
+            "status": "running",
+            "started_at": started_at.isoformat(),
+
+            "data_root": data_root,
+            "scanner": scanner_cls.__name__,
+            "n_cycles": n_cycles,
+
+            "datasets_discovered": 0,
+            "cycles_scanned": 0,
+
+            "datasets": [],
+            "cycles": [],
+
+            "warnings": [],
+            "errors": [],
+        }
+
+        try:
+            message = f"Scanning data root: {data_root}"
+            if callback:
+                callback(message)
+            logger.info(message)
+
+            # discover datasets
+            scanner = scanner_cls(data_root)
+
+            for ds in scanner.datasets:
+                try:
+                    self._repo.save_dataset(ds)
+                    # update in memory state of the dataset
+                    self._repo.load_fields(ds)
+
+                    report["datasets"].append({
+                        "name": ds.name,
+                        "root_dir": ds.root_dir,
+                    })
+                    report["datasets_discovered"] += 1
+
+                except Exception as e:
+                    logger.exception(
+                        f"Failed to save dataset {ds.name}"
+                    )
+                    report["errors"].append({
+                        "stage": "dataset_discovery",
+                        "dataset": ds.name,
+                        "error": str(e),
+                    })
+
+            #
+            # scan cycles
+            #
+            for cycle in scanner.scan_dataset_cycles(n_cycles):
+                cycle_hour = int(cycle.cycle_hour)
+
+                cycle_id = (
+                    f"{cycle.cycle_date} "
+                    f"{cycle_hour:02d}"
+                )
+
+                try:
+                    if callback:
+                        callback(f"Scanning cycle {cycle_id}")
+                    logger.info(
+                        f"Scanning cycle {cycle_id}"
+                    )
+
+                    ds_cycle = cycle.dataset.build_cycle(
+                        cycle.cycle_date,
+                        cycle.cycle_hour,
+                        cycle.scan_results
+                    )
+
+                    self._repo.save_scan(ds_cycle)
+
+                    report["cycles"].append({
+                        "dataset": cycle.dataset.name,
+                        "cycle_date": str(cycle.cycle_date),
+                        # "cycle_hour": int(cycle.cycle_hour),
+                        "cycle_hour": cycle_hour,
+                        "n_files": len(ds_cycle.files),
+                    })
+                    report["cycles_scanned"] += 1
+
+                except Exception as e:
+                    logger.exception(
+                        f"Failed cycle {cycle_id}"
+                    )
+                    report["errors"].append({
+                        "stage": "cycle_scan",
+                        "dataset": cycle.dataset.name,
+                        "cycle_date": str(cycle.cycle_date),
+                        "cycle_hour": int(cycle.cycle_hour),
+                        "error": str(e),
+                    })
+
+            self._session.commit()
+
+            report["status"] = "success"
+
+        except Exception as e:
+            logger.exception("Fatal scan failure")
+            report["status"] = "failed"
+            report["errors"].append({
+                "stage": "fatal",
+                "error": str(e),
+            })
+            self._session.rollback()
+
+        finished_at = datetime.utcnow()
+        report["finished_at"] = (
+            finished_at.isoformat()
+        )
+        report["duration_seconds"] = (
+            finished_at - started_at
+        ).total_seconds()
+        logger.info("Scan complete")
+
+        return report
+
+
+    def old_scan(self, data_root: str, n_cycles: Optional[int], scanner_cls=DefaultScanner, callback=None):
 
         message = f"Scanning data root: {data_root}"
         if callback:
@@ -68,14 +203,6 @@ class Database:
 
         self._session.commit()
         logger.info("Scan complete")
-
-    # to be replaced by the datasets method below:
-    # def list_datasets(self) -> List[str]:
-        # """
-        # Returns list of dataset names.
-        # """
-        # datasets = self._repo.get_all_datasets()
-        # return [d.name for d in datasets]
 
     def datasets(self) -> list[Dataset]:
         return [
