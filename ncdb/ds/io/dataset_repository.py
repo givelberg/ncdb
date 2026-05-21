@@ -20,6 +20,38 @@ class DatasetRepository:
 
     def save_dataset(self, dataset: Dataset):
         existing = self.session.scalar(
+            select(DatasetORM).where(
+                and_(
+                    DatasetORM.name == dataset.name,
+                    DatasetORM.root_dir == dataset.root_dir,
+                )
+            )
+        )
+        if existing:
+            dataset.id = existing.id
+            return existing
+
+        orm = DatasetORM(
+            name=dataset.name,
+            root_dir=dataset.root_dir
+        )
+
+        self.session.add(orm)
+        self.session.flush()
+
+        dataset.id = orm.id
+
+        logger.info(
+            f"Created dataset "
+            f"id={orm.id} "
+            f"name={orm.name} "
+            f"root_dir={orm.root_dir}"
+        )
+
+        return orm
+
+    def old_save_dataset(self, dataset: Dataset):
+        existing = self.session.scalar(
             select(DatasetORM).where(DatasetORM.name == dataset.name)
         )
 
@@ -138,7 +170,15 @@ class DatasetRepository:
         return cycle
 
     def get_all_datasets(self):
-        stmt = select(DatasetORM).order_by(DatasetORM.name)
+        # stmt = select(DatasetORM).order_by(DatasetORM.name)
+        stmt = (
+            select(DatasetORM)
+            .order_by(
+                DatasetORM.name,
+                DatasetORM.root_dir
+            )
+        )
+
         return [
             Dataset.from_db_self(orm)
             for orm in self.session.scalars(stmt).all()

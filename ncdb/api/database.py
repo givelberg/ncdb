@@ -77,10 +77,12 @@ class Database:
             scanner = scanner_cls(data_root)
 
             for ds in scanner.datasets:
+                # print(f"scanner dataset {ds}")
                 try:
                     self._repo.save_dataset(ds)
                     # update in memory state of the dataset
                     self._repo.load_fields(ds)
+                    print(f"    LOADED  dataset {ds}")
 
                     report["datasets"].append({
                         "name": ds.name,
@@ -169,48 +171,110 @@ class Database:
 
         return report
 
+    def datasets(
+        self,
+        name: str | None = None,
+        root_dir: str | None = None,
+    ) -> list[Dataset]:
 
-    def old_scan(self, data_root: str, n_cycles: Optional[int], scanner_cls=DefaultScanner, callback=None):
+        datasets = self._repo.get_all_datasets()
 
-        message = f"Scanning data root: {data_root}"
-        if callback:
-            callback(message)
-        logger.info(message)
+        if name is not None:
+            datasets = [
+                d for d in datasets
+                if d.name == name
+            ]
 
-        # discover datasets
-        scanner = scanner_cls(data_root)
+        if root_dir is not None:
+            datasets = [
+                d for d in datasets
+                if d.root_dir == root_dir
+            ]
 
-        for ds in scanner.datasets:
-            self._repo.save_dataset(ds)
-            # update in memory state of the dataset
-            self._repo.load_fields(ds)
-
-        for cycle in scanner.scan_dataset_cycles(n_cycles):
-            ds_cycle = cycle.dataset.build_cycle(
-                cycle.cycle_date,
-                cycle.cycle_hour,
-                cycle.scan_results
-            )
-
-            if callback:
-                callback(f"Scanning cycle {cycle.cycle_date} {cycle.cycle_hour}")
-
-            # logger.info(f"Cycle built: {len(ds_cycle.files)} files")
-            # logger.info(f"Dataset now has {len(ds_cycle.dataset.fields)} fields")
-
-            self._repo.save_scan(ds_cycle)
-            # self._repo.save_cycle(ds_cycle)
-
-        self._session.commit()
-        logger.info("Scan complete")
-
-    def datasets(self) -> list[Dataset]:
         return [
             Dataset(d, self._repo)
-            for d in self._repo.get_all_datasets()
+            for d in datasets
         ]
 
-    def dataset(self, key):
+    # def datasets(self) -> list[Dataset]:
+        # return [
+            # Dataset(d, self._repo)
+            # for d in self._repo.get_all_datasets()
+        # ]
+
+    def dataset(
+        self,
+        name: str | None = None,
+        root_dir: str | None = None,
+        id: int | None = None,
+    ):
+        """
+        Load a dataset.
+
+        Parameters
+        ----------
+        id : int
+            Dataset database id.
+
+        name : str
+            Dataset name.
+
+        root_dir : str
+            Dataset root directory.
+        """
+
+        datasets = self._repo.get_all_datasets()
+
+        #
+        # lookup by id
+        #
+        if id is not None:
+            matches = [
+                d for d in datasets
+                if d.id == id
+            ]
+            if not matches:
+                raise ValueError(
+                    f"Dataset id '{id}' not found"
+                )
+            return Dataset(matches[0], self._repo)
+
+        #
+        # lookup by name/root_dir
+        #
+        if name is not None:
+            matches = [
+                d for d in datasets
+                if d.name == name
+            ]
+            if root_dir is not None:
+                matches = [
+                    d for d in matches
+                    if d.root_dir == root_dir
+                ]
+            if len(matches) == 0:
+                raise ValueError(
+                    f"Dataset not found "
+                    f"name={name} "
+                    f"root_dir={root_dir}"
+                )
+            if len(matches) > 1:
+                raise ValueError(
+                    f"Multiple datasets found "
+                    f"name={name} "
+                    f"root_dir={root_dir}"
+                )
+
+            return Dataset(matches[0], self._repo)
+
+        raise ValueError(
+            "dataset() requires either "
+            "id or name"
+        )
+
+##################
+
+    def old_dataset(self, key):
         """
         Load dataset by id or name.
 
@@ -226,7 +290,6 @@ class Database:
         # lookup by integer id
         #
         if isinstance(key, int):
-
             for d in datasets:
                 if d.id == key:
                     return Dataset(d, self._repo)
@@ -237,7 +300,6 @@ class Database:
         # lookup by name
         #
         if isinstance(key, str):
-
             matches = [
                 d for d in datasets
                 if d.name == key
@@ -262,22 +324,7 @@ class Database:
             f"Unsupported dataset key type: {type(key)}"
         )
 
-    def old_dataset(self, name: str):
-        """
-        Load a dataset by name.
-        """
-        datasets = self._repo.get_all_datasets()
-
-        for d in datasets:
-            if d.name == name:
-                return Dataset(d, self._repo) 
-                # load fields immediately (needed for API)
-                # self._repo.load_fields(d)
-                # return d
-
-        raise ValueError(f"Dataset '{name}' not found")
-
-    def cycles(self, dataset_name: Optional[str] = None):
+    def old_cycles(self, dataset_name: Optional[str] = None):
         if dataset_name:
             ds = self.dataset(dataset_name)
             self._repo.load_cycles(ds)

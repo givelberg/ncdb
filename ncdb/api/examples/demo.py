@@ -19,6 +19,7 @@ DB_DIR = BASE_DIR
 from ncdb.scanners.marine_da_scanner import MarineDAScanner
 SCANNER = MarineDAScanner
 DATA_ROOT = "/scratch4/NCEPDEV/global/John.Steffen/hpss_arch/cp4.03-parallel-3dvar"
+DATA_ROOT4 = "/scratch4/NCEPDEV/global/John.Steffen/hpss_arch/cp4.04-parallel-3dvar"
 DB_PATH = f"{DB_DIR}/cp4.03-parqllel-3dvar.db"
 
 
@@ -42,11 +43,26 @@ def main():
         scanner_cls=SCANNER
     )
 
-    gdas = db.dataset("gdas")
+    db.scan(
+        data_root=DATA_ROOT4,
+        n_cycles=-2,
+        scanner_cls=SCANNER
+    )
 
-    print("\n=== Dataset loaded ===\n")
+    print("\n=== Datasets ===")
+    print(db.datasets())
 
-    obsspace_names = gdas.list_obsspaces()
+    # gdas = db.dataset("gdas")
+
+    gdas_datasets = db.datasets("gdas")
+    print("\n=== gdas Datasets ===")
+    for ds in gdas_datasets:
+        print(ds)
+    gdas = gdas_datasets[0]
+
+    print(f"\n=== loaded dataset {gdas} ===\n")
+
+    obsspace_names = [o.name for o in gdas.obsspaces()]
     print(f"{len(obsspace_names)} obs spaces:")
     for name in sorted(obsspace_names):
         print(f"- {name}")
@@ -64,8 +80,10 @@ def main():
     temp = sst.field("/ObsValue/seaSurfaceTemperature")
     # ice = sst.field("ombg/seaIceFraction")
 
-    cycles = db.cycles()
-    print(f"Available cycles: {cycles}")
+    cycles = gdas.cycles
+    print(f"Available cycles for {gdas}:")
+    for c in cycles:
+        print(c)
 
     # t = datetime(2026, 4, 7, 6)
     # t = datetime(2026, 5, 1, 6)

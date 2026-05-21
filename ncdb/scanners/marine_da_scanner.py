@@ -29,7 +29,6 @@ class MarineDAScanner(BaseScanner):
             )
             return []
 
-        # for entry in os.listdir(self.root_dir):
         for entry in entries:
             full_path = os.path.join(self.root_dir, entry)
 
@@ -88,7 +87,6 @@ class MarineDAScanner(BaseScanner):
             )
             return []
 
-        # if not self.root_dir or not os.path.isdir(self.root_dir):
         if not self.root_dir or not valid_dir:
             logger.warning(f"Invalid root_dir for dataset '{dataset.name}'")
             return []
@@ -105,10 +103,8 @@ class MarineDAScanner(BaseScanner):
             )
             return []
 
-        # for entry in os.listdir(self.root_dir):
         for entry in entries:
             entry_path = os.path.join(self.root_dir, entry)
-
             if not os.path.isdir(entry_path):
                 continue
 
@@ -202,17 +198,17 @@ class MarineDAScanner(BaseScanner):
     def is_valid_cycle_hour(self, hour: str) -> bool:
         return hour in {"00", "06", "12", "18"}
 
-    def old_scan_files(self, root_path):
-        if not os.path.isdir(root_path):
-            return []
-
-        all_files = []
-        for dirpath, dirnames, filenames in os.walk(root_path):
-            if not dirnames:
-                for filename in filenames:
-                    full_path = os.path.join(dirpath, filename)
-                    all_files.append(File.from_path(full_path))
-        return all_files
+    # def old_scan_files(self, root_path):
+        # if not os.path.isdir(root_path):
+            # return []
+# 
+        # all_files = []
+        # for dirpath, dirnames, filenames in os.walk(root_path):
+            # if not dirnames:
+                # for filename in filenames:
+                    # full_path = os.path.join(dirpath, filename)
+                    # all_files.append(File.from_path(full_path))
+        # return all_files
 
     def _scan_files(self, root_path):
 

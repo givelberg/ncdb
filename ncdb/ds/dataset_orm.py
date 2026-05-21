@@ -12,12 +12,42 @@ class DatasetORM(Base):
     __tablename__ = "datasets"
 
     id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    root_dir = Column(String, nullable=False)
+
+    cycles = relationship(
+        "CycleORM",
+        back_populates="dataset"
+    )
+    fields = relationship(
+        "FieldORM",
+        back_populates="dataset"
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "name",
+            "root_dir",
+            name="uq_dataset_name_root"
+        ),
+    )
+
+'''
+class DatasetORM(Base):
+    __tablename__ = "datasets"
+
+    id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
     root_dir = Column(String, nullable=False)
 
     # One-to-many: cycles and fields
     cycles = relationship("CycleORM", back_populates="dataset")
     fields = relationship("FieldORM", back_populates="dataset")
+
+    __table_args__ = (
+        UniqueConstraint("name", "root_dir"),
+    )
+'''
 
 
 class CycleORM(Base):
