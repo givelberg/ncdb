@@ -202,7 +202,58 @@ class Database:
             # for d in self._repo.get_all_datasets()
         # ]
 
-    def dataset(
+
+    def dataset(self, key, root_dir=None):
+
+        datasets = self._repo.get_all_datasets()
+
+        #
+        # lookup by integer id
+        #
+        if isinstance(key, int):
+            for d in datasets:
+                if d.id == key:
+                    return Dataset(d, self._repo)
+            raise ValueError(
+                f"Dataset id '{key}' not found"
+            )
+
+        #
+        # lookup by name
+        #
+        if isinstance(key, str):
+            matches = [
+                d for d in datasets
+                if d.name == key
+            ]
+            #
+            # optional root_dir disambiguation
+            #
+            if root_dir is not None:
+                matches = [
+                    d for d in matches
+                    if d.root_dir == root_dir
+                ]
+            if len(matches) == 0:
+                raise ValueError(
+                    f"Dataset not found "
+                    f"name={key} root_dir={root_dir}"
+                )
+
+            if len(matches) > 1:
+                raise ValueError(
+                    f"Multiple datasets found "
+                    f"name={key}; specify root_dir"
+                )
+
+            return Dataset(matches[0], self._repo)
+
+        raise TypeError(
+            f"Unsupported dataset key type: {type(key)}"
+        )
+
+
+    def try_dataset(
         self,
         name: str | None = None,
         root_dir: str | None = None,
